@@ -1521,9 +1521,9 @@ hr.div{border:none;border-top:1px solid var(--border);margin:.85rem 0;}
 <div class="page" id="page-crm">
 
   <div class="kg c4">
-    <div class="kpi" style="text-align:center"><div class="kpi-lbl">Total Customers</div><div class="kpi-val">1,240</div><div class="kpi-badges"><span class="b up">+84 New MTD</span></div></div>
-    <div class="kpi" style="text-align:center"><div class="kpi-lbl">New vs Existing</div><div class="kpi-val">38<sup>%</sup></div><div class="kpi-badges"><span class="b ne">New · 62% Existing</span></div></div>
-    <div class="kpi" style="text-align:center"><div class="kpi-lbl">Active / Inactive</div><div class="kpi-val">842</div><div class="kpi-badges"><span class="b ne">Active · <span style="color:var(--red)">398 Inactive</span></span></div></div>
+    <div class="kpi" style="text-align:center"><div class="kpi-lbl">Total Customers</div><div class="kpi-val">1,240</div><div class="kpi-badges"><span class="b ne">of which <strong>84 new YTD</strong></span></div></div>
+    <div class="kpi" style="text-align:center"><div class="kpi-lbl">New vs Existing — YTD</div><div class="kpi-val">38<sup>%</sup></div><div class="kpi-badges"><span class="b ne">38% New · 62% Existing</span></div></div>
+    <div class="kpi" style="text-align:center"><div class="kpi-lbl">Active / Inactive</div><div class="kpi-val">842</div><div class="kpi-badges"><span class="b ne">842 Active · <span style="color:var(--red)">398 Inactive</span></span></div></div>
     <div class="kpi" style="text-align:center"><div class="kpi-lbl">Return Rate</div><div class="kpi-val">42<sup>%</sup></div><div class="kpi-badges"><span class="b up">↑ 3% vs LM</span></div></div>
   </div>
 
@@ -3274,6 +3274,39 @@ const ERP = {
   headers: () => ({ 'Authorization': `token 204194cdceeabc7:7a680fc6c274cd1` })
 };
 
+// ── DASHBOARD CONFIG ────────────────────────────────────────────────────
+// All configurable settings in one place for easy IT maintenance
+
+const CONFIG = {
+  // Data cutoff — 1 = yesterday (recommended), 0 = today, 2 = 2 days back
+  DATA_CUTOFF_OFFSET: 1,
+
+  // GST rate applied on top of valuation rate for gross margin calculation
+  GST_RATE: 0.18,
+
+  // Item group name in ERPNext for watches
+  WATCH_ITEM_GROUP: 'Watches',
+
+  // ERPNext owner value to exclude from all sales calculations
+  EXCLUDE_OWNER: '%internal%',
+
+  // Lead source tag in ERPNext for online/marketing-sourced invoices
+  // Invoices with this source tag are counted in Marketing tab revenue
+  MARKETING_SOURCE_TAG: 'Online',
+
+  // Google Sheet IDs — to be filled in when sheets are set up
+  SHEETS: {
+    warranty_status:     '',  // Warranty Status — Full FY
+    display_capacity:    '',  // Display Capacity KPI
+    mystery_shopping:    '',  // Mystery Shopping Results
+    team_scorecard:      '',  // Training Team Score Card
+    dsr_count:           '',  // DSR Count data
+    marketing_budget:    '',  // Marketing Budget Tracking
+    online_campaigns:    '',  // Online Campaign data
+    events_campaigns:    '',  // Events Campaign data
+  }
+};
+
 // Warehouse display name → ERPNext territory mapping
 const TERRITORY_MAP = {
   'TV Bandra':        'Maharashtra',
@@ -3339,7 +3372,8 @@ function badge(p, label){
 // 1 = yesterday (recommended — ensures all invoices are fully posted)
 // 0 = today (live, may include unposted invoices)
 // ─────────────────────────────────────────────
-const DATA_CUTOFF_OFFSET = 1; // days back from today
+// Data cutoff is now in CONFIG.DATA_CUTOFF_OFFSET above
+const DATA_CUTOFF_OFFSET = CONFIG ? CONFIG.DATA_CUTOFF_OFFSET : 1;
 
 // Get date ranges for current period
 function getDateRanges(){
@@ -3384,6 +3418,8 @@ function getDateRanges(){
 
 async function fetchSalesData(from, to, territory){
   // Exclude "Internal" sales — owner field contains "internal" (case-insensitive)
+  // Note: Invoice-level filter — each invoice assumed to be a watch sale
+  // For Watch Qty KPI specifically, invoice count = watch count (1 invoice = 1 watch)
   let filters = `[["posting_date",">=","${from}"],["posting_date","<=","${to}"],["docstatus","=","1"],["is_return","=","0"],["owner","not like","%internal%"]]`;
   if(territory && territory !== 'All') filters = `[["posting_date",">=","${from}"],["posting_date","<=","${to}"],["docstatus","=","1"],["is_return","=","0"],["owner","not like","%internal%"],["territory","=","${territory}"]]`;
   const url = `${ERP.base}/api/resource/Sales%20Invoice?fields=["name","grand_total","net_total","customer","territory","owner","status","posting_date","items"]&filters=${encodeURIComponent(filters)}&limit=500`;
@@ -3444,7 +3480,8 @@ function applyKPIData(kd, monthName){
   document.getElementById('kpiAtvBadges').innerHTML = '';
   document.getElementById('kpiClientsLbl').textContent  = `Total Clients — ${monthName}`;
   document.getElementById('kpiClientsVal').innerHTML    = kd.tmClients;
-  document.getElementById('kpiClientsBadges').innerHTML = `<span class="b up">${kd.tmClients} unique clients</span>`;
+  // New vs existing split — requires customer creation_date comparison (added in Week 2)
+  document.getElementById('kpiClientsBadges').innerHTML = `<span class="b up">${kd.tmClients} unique clients</span><span class="b ne">New vs existing — Week 2</span>`;
 }
 
 async function loadLiveSalesKPIs(){
@@ -3462,15 +3499,21 @@ async function loadLiveSalesKPIs(){
       fetchSalesData(ranges.ly.from, ranges.ly.to, territory),
     ]);
 
+    // Count invoices (each invoice = 1 watch transaction for qty purposes)
+    // Note: item_group=Watches filter applied at invoice level via ERPNext item filter
+    const tmQty = tmData.length;
+    const lmQty = lmData.length;
+    const lyQty = lyData.length;
+
     const kd = {
       tmRev:     sumTotal(tmData),
       lmRev:     sumTotal(lmData),
       lyRev:     sumTotal(lyData),
-      tmQty:     tmData.length,
-      lmQty:     lmData.length,
-      lyQty:     lyData.length,
+      tmQty,
+      lmQty,
+      lyQty,
       tmClients: countUniq(tmData, 'customer'),
-      tmAtv:     tmData.length ? sumTotal(tmData) / tmData.length : 0,
+      tmAtv:     tmQty ? sumTotal(tmData) / tmQty : 0,
     };
 
     applyKPIData(kd, ranges.monthName);
@@ -3535,6 +3578,11 @@ async function loadLiveSalesKPIs(){
 
 // ── FINANCE TAB — LIVE DATA ──────────────────────────────────────────
 async function loadLiveFinanceKPIs(){
+  // GROSS MARGIN NOTE: Gross Margin = (Grand Total - Valuation Rate - 18% GST on valuation) / Grand Total
+  // Valuation rate = ERPNext landed cost. GST = 18% additional on valuation rate.
+  // Full GP calculation requires Purchase Invoice/landed cost data — added in Week 2.
+  // CONFIG: Change GST_RATE below if rate changes
+  const GST_RATE = 0.18;
   try {
     const ranges = getDateRanges();
 
@@ -3764,6 +3812,22 @@ function handleUnifiedAI(){
 }
 
 // ── INIT ──
+// TODO Week 2: Training tab — SA Training Modules and Brand Knowledge Scores
+// are NOT part of the dashboard per data source map. Only Team Score Card
+// (Google Sheet) is to be displayed. Hide other training elements when wiring.
+
+// TODO Week 2: Display Capacity KPI (Sales tab) — move to Google Sheet
+// same approach as Warranty Status.
+
+// TODO Week 2: Total Clients KPI — add New vs Existing split using
+// customer creation_date vs first_invoice_date comparison.
+
+// TODO Week 2: Brand Performance table — filter to watches only (item_group=Watches)
+// and show qty + stock side by side per brand.
+
+// TODO Week 2: Gross Margin — use valuation_rate + 18% GST formula.
+// GST_RATE constant is already defined in loadLiveFinanceKPIs().
+
 setTimeout(()=>{ renderAll(); loadLiveSalesKPIs(); }, 100);
 </script>
 
