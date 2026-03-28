@@ -1419,7 +1419,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:.85rem 0;}
 
   <div class="kg c5">
     <div class="kpi" style="text-align:center"><div class="kpi-lbl">Total Boutiques</div><div class="kpi-val">3</div><div class="kpi-badges"><span class="b ne">Mumbai × 2 · Bangalore</span></div></div>
-    <div class="kpi" style="text-align:center"><div class="kpi-lbl">Total Inventory Qty</div><div class="kpi-val">342</div><div class="kpi-badges"><span class="b ne">₹28.4Cr value</span></div></div>
+    <div class="kpi" style="text-align:center"><div class="kpi-lbl">Total Watch Qty</div><div class="kpi-val">342</div><div class="kpi-badges"><span class="b ne">₹28.4Cr value</span></div></div>
     <div class="kpi" style="text-align:center"><div class="kpi-lbl">Avg Sell-Through</div><div class="kpi-val">72<sup>%</sup></div><div class="kpi-badges"><span class="b up">↑ 4% vs LM</span></div></div>
     <div class="kpi" style="text-align:center"><div class="kpi-lbl">Brand Occupancy %</div><div class="kpi-val">78<sup>%</sup></div><div class="kpi-badges"><span class="b ne">Display positions used</span></div></div>
     <div class="kpi" style="text-align:center"><div class="kpi-lbl">Monthly Avg Sell-Through</div><div class="kpi-val">34<sup>pcs</sup></div><div class="kpi-badges"><span class="b ne">₹2.18Cr value</span></div></div>
@@ -1427,7 +1427,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:.85rem 0;}
 
   <div class="g21">
     <div class="card">
-      <div class="card-hd">Store Inventory
+      <div class="card-hd">Watch Inventory
         <div class="acts">
           <select id="storeInvLocFilter" onchange="filterStoreInv()" style="font-size:.52rem;padding:.2rem .5rem;border:1px solid var(--gold-bd);border-radius:4px;background:var(--bg3);color:var(--dark)">
             <option value="All">All Locations</option>
@@ -1438,7 +1438,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:.85rem 0;}
         </div>
       </div>
       <div class="tbl-wrap"><table class="tbl" id="storeInvTable">
-        <thead><tr><th>Location</th><th>Brand</th><th>Stock (SOH)</th><th>Display Cap</th><th>Occupancy %</th><th>Sell-Through %</th></tr></thead>
+        <thead><tr><th>Location</th><th>Brand</th><th>Watches (SOH)</th><th>Display Cap</th><th>Occupancy %</th><th>Sell-Through %</th></tr></thead>
         <tbody id="storeInvBody">
           <tr data-loc="Bandra West"><td>Bandra West</td><td>Cartier</td><td class="num">14</td><td>20</td><td>70%</td><td class="num">72%</td></tr>
           <tr data-loc="Bandra West"><td>Bandra West</td><td>IWC</td><td class="num">9</td><td>15</td><td>60%</td><td class="num">60%</td></tr>
@@ -1451,12 +1451,12 @@ hr.div{border:none;border-top:1px solid var(--border);margin:.85rem 0;}
       </table></div>
     </div>
     <div class="card">
-      <div class="card-hd" style="cursor:pointer" onclick="openDrill('merch-inv-kpis')">Inventory KPIs <span style="font-size:.5rem;color:var(--gold);letter-spacing:0;text-transform:none;font-weight:400">↗ details</span></div>
+      <div class="card-hd" style="cursor:pointer" onclick="openDrill('merch-inv-kpis')">Watch Inventory KPIs <span style="font-size:.5rem;color:var(--gold);letter-spacing:0;text-transform:none;font-weight:400">↗ details</span></div>
       <div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>Metric</th><th>Qty</th><th>Value</th></tr></thead>
         <tbody>
-          <tr><td>Total Inventory (Tax Invoice)</td><td class="num">240</td><td class="num">₹22.4Cr</td></tr>
-          <tr><td>Total Inventory (Consignment)</td><td class="num">102</td><td class="num">₹6.0Cr</td></tr>
+          <tr><td>Watches (Tax Invoice)</td><td class="num">240</td><td class="num">₹22.4Cr</td></tr>
+          <tr><td>Watches (Consignment)</td><td class="num">102</td><td class="num">₹6.0Cr</td></tr>
         </tbody>
       </table></div>
       <hr class="div"/>
@@ -1467,7 +1467,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:.85rem 0;}
 
   <div class="g2">
     <div class="card">
-      <div class="card-hd">Aging Stock <div class="acts"><button class="btn">Download Excel</button></div></div>
+      <div class="card-hd">Aging Watch Stock <div class="acts"><button class="btn">Download Excel</button></div></div>
       <div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>Brand</th><th>Ref No</th><th>Serial No</th><th>Location</th><th>Days in Stock</th><th>Value</th></tr></thead>
         <tbody>
@@ -2415,6 +2415,8 @@ function showTab(id,el){
     if(pb)pb.style.display='none';
     if(lf)lf.style.display='none';
     setTimeout(()=>initTabCharts(id),80);
+    if(id==='finance') setTimeout(loadLiveFinanceKPIs, 150);
+    if(id==='merch')   setTimeout(loadLiveMerchData,   150);
   }
   if(id==='dsr') return;
 }
@@ -3381,8 +3383,9 @@ function getDateRanges(){
 }
 
 async function fetchSalesData(from, to, territory){
-  let filters = `[["posting_date",">=","${from}"],["posting_date","<=","${to}"],["docstatus","=","1"],["is_return","=","0"]]`;
-  if(territory && territory !== 'All') filters = `[["posting_date",">=","${from}"],["posting_date","<=","${to}"],["docstatus","=","1"],["is_return","=","0"],["territory","=","${territory}"]]`;
+  // Exclude "Internal" sales — owner field contains "internal" (case-insensitive)
+  let filters = `[["posting_date",">=","${from}"],["posting_date","<=","${to}"],["docstatus","=","1"],["is_return","=","0"],["owner","not like","%internal%"]]`;
+  if(territory && territory !== 'All') filters = `[["posting_date",">=","${from}"],["posting_date","<=","${to}"],["docstatus","=","1"],["is_return","=","0"],["owner","not like","%internal%"],["territory","=","${territory}"]]`;
   const url = `${ERP.base}/api/resource/Sales%20Invoice?fields=["name","grand_total","net_total","customer","territory","owner","status","posting_date","items"]&filters=${encodeURIComponent(filters)}&limit=500`;
   const resp = await fetch(url, { headers: ERP.headers() });
   if(!resp.ok) throw new Error('ERPNext fetch failed: '+resp.status);
@@ -3527,6 +3530,217 @@ async function loadLiveSalesKPIs(){
         'error'
       );
     }
+  }
+}
+
+// ── FINANCE TAB — LIVE DATA ──────────────────────────────────────────
+async function loadLiveFinanceKPIs(){
+  try {
+    const ranges = getDateRanges();
+
+    // Fetch this month, last month, last year same month invoices
+    const [tmData, lmData, lyData, fyData] = await Promise.all([
+      fetchSalesData(ranges.tm.from, ranges.tm.to, null),
+      fetchSalesData(ranges.lm.from, ranges.lm.to, null),
+      fetchSalesData(ranges.ly.from, ranges.ly.to, null),
+      fetchSalesData(ranges.fy.from, ranges.fy.to, null),
+    ]);
+
+    const tmRev  = sumTotal(tmData);
+    const lmRev  = sumTotal(lmData);
+    const lyRev  = sumTotal(lyData);
+    const fyRev  = sumTotal(fyData);
+    const tmQty  = tmData.length;
+    const fyQty  = fyData.length;
+
+    const revGrowthLM   = pct(tmRev, lmRev);
+    const revGrowthLYSM = pct(tmRev, lyRev);
+    const fyGrowth      = pct(fyRev, fyQty); // placeholder
+
+    const mn = ranges.monthName;
+
+    // Update Finance KPI cards
+    document.getElementById('finKpi1Lbl').textContent = `Monthly Revenue — ${mn}`;
+    document.getElementById('finKpi1Val').innerHTML   = fmtCr(tmRev);
+    document.getElementById('finKpi1Bdg').outerHTML   = badge(revGrowthLM,'vs LM') + badge(revGrowthLYSM,'vs LYSM');
+
+    // Revenue Growth Rate
+    document.getElementById('finKpi4Lbl').textContent = `Revenue Growth Rate`;
+    document.getElementById('finKpi4Val').innerHTML   = `${revGrowthLM > 0 ? '+' : ''}${revGrowthLM}<sup>%</sup>`;
+    document.getElementById('finKpi4Bdg').outerHTML   = `<span class="b ${revGrowthLM>=0?'up':'dn'}" id="finKpi4Bdg">vs LM</span>`;
+
+    // Update Financial Health table — Total Revenue row
+    const finTable = document.querySelector('#page-finance .tbl tbody');
+    if(finTable){
+      const rows = finTable.querySelectorAll('tr');
+      if(rows[0]){ // Total Revenue row
+        rows[0].cells[1].textContent = fmtCr(tmRev).replace(/<[^>]*>/g,'');
+        rows[0].cells[1].innerHTML   = fmtCr(tmRev);
+        rows[0].cells[3].innerHTML   = fmtCr(fyRev); // YTD
+      }
+      if(rows[1]){ // No. of Products Sold
+        rows[1].cells[1].textContent = tmQty;
+        rows[1].cells[3].textContent = fyQty;
+      }
+    }
+
+    console.log('✅ Finance live data loaded');
+
+  } catch(err){
+    console.warn('Finance live data failed:', err);
+  }
+}
+
+// ── MERCHANDISING TAB — LIVE DATA ────────────────────────────────────
+async function loadLiveMerchData(){
+  try {
+    const ranges = getDateRanges();
+
+    // Fetch stock data from ERPNext
+    const stockUrl = `${ERP.base}/api/resource/Bin?fields=["item_code","warehouse","actual_qty","stock_value","valuation_rate"]&filters=[["actual_qty",">","0"],["item_code","in",["select name from \`tabItem\` where item_group='Watches'"]]]&limit=500`;
+    // Simpler approach — fetch all stock then filter by item_group via Items API
+    const watchItemsUrl = `${ERP.base}/api/resource/Item?fields=["name"]&filters=[["item_group","=","Watches"],["disabled","=","0"]]&limit=5000`;
+    const watchItemsResp = await fetch(watchItemsUrl, { headers: ERP.headers() });
+    const watchItemsJson = watchItemsResp.ok ? await watchItemsResp.json() : { data: [] };
+    const watchItemCodes = new Set((watchItemsJson.data || []).map(i => i.name));
+    const stockUrlClean = `${ERP.base}/api/resource/Bin?fields=["item_code","warehouse","actual_qty","stock_value","valuation_rate"]&filters=[["actual_qty",">","0"]]&limit=2000`;
+    const stockResp = await fetch(stockUrlClean, { headers: ERP.headers() });
+    if(!stockResp.ok) throw new Error('Stock fetch failed');
+    const stockJson = await stockResp.json();
+    const allStockData = stockJson.data || [];
+    // Filter to watches only
+    const stockData = watchItemCodes.size > 0
+      ? allStockData.filter(i => watchItemCodes.has(i.item_code))
+      : allStockData;
+
+    // Fetch stock ageing from Purchase Receipt
+    const ageUrl = `${ERP.base}/api/resource/Stock%20Ledger%20Entry?fields=["item_code","warehouse","posting_date","actual_qty","valuation_rate"]&filters=[["actual_qty",">","0"]]&order_by=posting_date asc&limit=1000`;
+    const ageResp = await fetch(ageUrl, { headers: ERP.headers() });
+    const ageJson = ageResp.ok ? await ageResp.json() : { data: [] };
+    const ageDataRaw = ageJson.data || [];
+    // Filter aging data to watches only
+    const ageData = watchItemCodes.size > 0
+      ? ageDataRaw.filter(i => watchItemCodes.has(i.item_code))
+      : ageDataRaw;
+
+    // Calculate totals
+    const totalQty   = stockData.reduce((s,i) => s + (parseFloat(i.actual_qty)||0), 0);
+    const totalValue = stockData.reduce((s,i) => s + (parseFloat(i.stock_value)||0), 0);
+
+    // Calculate aging buckets
+    const today = new Date();
+    let aging365 = 0, aging90 = 0;
+    const agingItems = [];
+
+    // Group by item_code — use earliest posting date
+    const itemAge = {};
+    for(const entry of ageData){
+      if(!entry.item_code || !entry.posting_date) continue;
+      const key = `${entry.warehouse}__${entry.item_code}`;
+      if(!itemAge[key] || entry.posting_date < itemAge[key].posting_date){
+        itemAge[key] = entry;
+      }
+    }
+
+    for(const key of Object.keys(itemAge)){
+      const entry = itemAge[key];
+      const days = Math.floor((today - new Date(entry.posting_date)) / 86400000);
+      if(days > 365) aging365++;
+      else if(days > 90) aging90++;
+      if(days > 365){
+        // Map warehouse to display name
+        const displayWh = Object.entries(WAREHOUSE_TERRITORY).find(([display, ids]) =>
+          Array.isArray(ids) ? ids.some(id => entry.warehouse.includes(id.split(' - ')[0])) : false
+        );
+        agingItems.push({
+          item_code: entry.item_code,
+          warehouse: entry.warehouse,
+          display_warehouse: displayWh ? displayWh[0] : entry.warehouse,
+          days,
+          value: (parseFloat(entry.actual_qty)||1) * (parseFloat(entry.valuation_rate)||0)
+        });
+      }
+    }
+
+    // Sort aging items by days descending
+    agingItems.sort((a,b) => b.days - a.days);
+
+    // Update KPI cards
+    const kpiCards = document.querySelectorAll('#page-merch .kpi');
+    if(kpiCards[1]){ // Total Inventory Qty
+      kpiCards[1].querySelector('.kpi-val').textContent = Math.round(totalQty);
+      kpiCards[1].querySelector('.kpi-badges').innerHTML = `<span class="b ne">${fmtCr(totalValue).replace(/<[^>]*>/g,'')} Cr value</span>`;
+    }
+
+    // Update Inventory KPIs table
+    const invTable = document.querySelector('#page-merch .tbl tbody');
+    if(invTable){
+      const rows = invTable.querySelectorAll('tr');
+      if(rows[0]) rows[0].cells[1].textContent = Math.round(totalQty);
+    }
+
+    // Update Aging Stock table with real data
+    const agingTbody = document.querySelector('#page-merch .g2 .card:first-child .tbl tbody');
+    if(agingTbody && agingItems.length > 0){
+      agingTbody.innerHTML = agingItems.slice(0,10).map(item => `
+        <tr>
+          <td>${item.item_code}</td>
+          <td>—</td>
+          <td>—</td>
+          <td>${item.display_warehouse}</td>
+          <td class="num" style="color:var(--red)">${item.days}</td>
+          <td class="num">${fmtL(item.value)}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Update Store Inventory table with real warehouse data
+    const storeData = {};
+    for(const item of stockData){
+      const wh = item.warehouse;
+      // Find display name
+      let displayName = wh;
+      for(const [display, ids] of Object.entries(WAREHOUSE_TERRITORY)){
+        if(Array.isArray(ids) && ids.some(id => wh === id)){
+          displayName = display;
+          break;
+        }
+      }
+      if(!storeData[displayName]) storeData[displayName] = { qty: 0, value: 0 };
+      storeData[displayName].qty   += parseFloat(item.actual_qty) || 0;
+      storeData[displayName].value += parseFloat(item.stock_value) || 0;
+    }
+
+    const storeBody = document.getElementById('storeInvBody');
+    if(storeBody && Object.keys(storeData).length > 0){
+      storeBody.innerHTML = Object.entries(storeData)
+        .filter(([loc]) => loc !== 'HO' && loc !== 'SOA')
+        .sort((a,b) => b[1].qty - a[1].qty)
+        .slice(0, 20)
+        .map(([loc, d]) => `
+          <tr data-loc="${loc}">
+            <td>${loc}</td>
+            <td>All Brands</td>
+            <td class="num">${Math.round(d.qty)}</td>
+            <td>—</td>
+            <td>—</td>
+            <td class="num">${fmtCr(d.value)}</td>
+          </tr>
+        `).join('');
+
+      // Update location filter dropdown with real warehouses
+      const filter = document.getElementById('storeInvLocFilter');
+      if(filter){
+        const locs = Object.keys(storeData).filter(l => l !== 'HO' && l !== 'SOA').sort();
+        filter.innerHTML = '<option value="All">All Locations</option>' +
+          locs.map(l => `<option value="${l}">${l}</option>`).join('');
+      }
+    }
+
+    console.log(`✅ Merch live data: ${Math.round(totalQty)} units, ${aging365} aging 365+ days`);
+
+  } catch(err){
+    console.warn('Merch live data failed:', err);
   }
 }
 
