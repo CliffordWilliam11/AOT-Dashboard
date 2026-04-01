@@ -4412,11 +4412,13 @@ let DSR_DATA = {
 };
 
 // Detect all available FY tabs by trying common names
+// Always includes: next FY, current FY, and previous FY
+// This ensures data never disappears on year rollover (e.g. 1 April)
 async function detectDSRTabs(){
   const now     = new Date();
   const curYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear()-1;
   const tabs    = [];
-  for(let y = curYear+1; y >= curYear; y--){
+  for(let y = curYear+1; y >= curYear-1; y--){
     tabs.push(`FY ${y}-${String(y+1).slice(2)}`);
   }
   return tabs;
